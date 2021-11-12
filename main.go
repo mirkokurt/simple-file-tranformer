@@ -2,28 +2,45 @@ package main
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"regexp"
 )
 
 type rule struct {
-	re           *regexp.Regexp
+	re           string
 	input_string string
 	replace_with string
 }
 
-var regolaA = rule{regexp.MustCompile(`^(\S*) - REQUEST-A$`), "REQUEST-A", "REQUEST-Z"}
-var regolaB = rule{regexp.MustCompile(`^(\S*) - REQUEST-B$`), "REQUEST-B", "REQUEST-X"}
-var regolaC = rule{regexp.MustCompile(`^(\S*) - REQUEST-C$`), "REQUEST-C", "REQUEST-Y"}
-
-var rule_sets [3]rule
+var rule_sets []rule
 
 func main() {
 
-	rule_sets[0] = regolaA
-	rule_sets[1] = regolaB
-	rule_sets[2] = regolaC
+	//Open the file with the rules to apply
+	fr, err := os.Open("rules.csv")
+	if err != nil {
+		fmt.Print("There has been an error!: ", err)
+	}
+	defer fr.Close()
+
+	//Read csv values using csv.Reader
+	csvReader := csv.NewReader(fr)
+	for {
+		rec, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		//Init the rule set
+		rul := rule{rec[0], rec[1], rec[2]}
+		rule_sets = append(rule_sets, rul)
+	}
 
 	//Open the input file
 	fi, err := os.Open("input.txt")
@@ -54,7 +71,7 @@ func main() {
 		line := scanner.Text()
 		//iterate all the rules in the set to search on rule to apply
 		for _, elem := range rule_sets {
-			res = elem.re.FindStringSubmatch(line)
+			res = regexp.MustCompile(elem.re).FindStringSubmatch(line)
 			if len(res) > 0 {
 				//apply the replace_with string
 				output_string := res[1] + " - " + elem.replace_with
