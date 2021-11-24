@@ -3,6 +3,7 @@ module github.com/mirkokurt/simple-file-transformer
 go 1.17
 
 require (
+	github.com/akavel/rsrc v0.10.2 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20190411002643-bd77b112433e // indirect
 	github.com/therecipe/qt v0.0.0-20200904063919-c0c124a5770d // indirect
 )

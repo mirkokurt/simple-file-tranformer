@@ -59,6 +59,7 @@ func main() {
 
 	widgetInside := widgets.NewQWidget(nil, 0)
 	widgetInside.SetLayout(formLayout)
+	widgetInside.SetMinimumWidth(600)
 
 	widget := widgets.NewQWidget(nil, 0)
 	widget.SetLayout(horizontalLayout)
