@@ -44,7 +44,7 @@ func main() {
 
 	widgets.NewQApplication(len(os.Args), os.Args)
 
-	window := widgets.NewQMainWindow(nil, 0)
+	window := widgets.NewQMainWindow(nil, core.Qt__WindowStaysOnTopHint)
 	window.SetWindowTitle("Modulo5 to Modulo6/Ecos504 file converter")
 	window.SetMinimumSize2(600, 400)
 
@@ -113,18 +113,20 @@ func main() {
 	})
 	selectOutput.SetMinimumSize(size)
 
+	//box := widgets.NewQMessageBox(nil)
+
 	tranformlabel := widgets.NewQLabel2("", nil, core.Qt__BypassWindowManagerHint)
 	tranformButton := widgets.NewQPushButton2("Trasforma", nil)
 	tranformButton.ConnectClicked(func(checked bool) {
 		queryInterval := inputQueryInterval.Text()
 		_, err := strconv.Atoi(queryInterval)
 		if err != nil {
-			widgets.QMessageBox_Warning(nil, "Errore", "Inserisci un Query Interval valido", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			widgets.QMessageBox_Warning(widget, "Errore", "Inserisci un Query Interval valido", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else if fileName == "" || outputfileName == "" {
-			widgets.QMessageBox_Warning(nil, "Errore", "Seleziona prima i file!", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			widgets.QMessageBox_Warning(widget, "Errore", "Seleziona prima i file!", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else {
-			transform(fileName, outputfileName, queryInterval)
-			widgets.QMessageBox_Information(nil, "Errore", "File generato con successo", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			transform(fileName, outputfileName, queryInterval, widget)
+			widgets.QMessageBox_Information(widget, "Errore", "File generato con successo", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		}
 	})
 
@@ -165,7 +167,7 @@ func setOutputType(index int) {
 
 }
 
-func transform(inputfile string, outputfile string, queryInterval string) {
+func transform(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) {
 
 	// Open the input file
 	fr, err := os.Open(inputfile)
@@ -177,7 +179,7 @@ func transform(inputfile string, outputfile string, queryInterval string) {
 	// Open the output file
 	fo, err := os.Create(outputfile)
 	if err != nil {
-		widgets.QMessageBox_Information(nil, "Errore", "Attenzione il file di output è aperto e non può essere scritto", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+		widgets.QMessageBox_Information(widget, "Errore", "Attenzione il file di output è aperto e non può essere scritto", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		return
 	}
 	// Close fo on exit and check for its returned error
@@ -231,7 +233,7 @@ func transform(inputfile string, outputfile string, queryInterval string) {
 				err = writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
 				checkError("Cannot write to file", err)
 			} else {
-				widgets.QMessageBox_Warning(nil, "Errore", "Seleziona la tipologia di file di output", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				widgets.QMessageBox_Warning(widget, "Errore", "Seleziona la tipologia di file di output", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 			}
 
 		}
