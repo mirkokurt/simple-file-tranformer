@@ -43,7 +43,7 @@ func main() {
 	table_headers["modulo5_old"] = []string{"description", "channel nbr", "direction", "DP type AS", "DP type FS", "scaling parameter A", "scaling parameter B", "byte order", "COV inc", "priority", "triggerd", "Slave Adress", "FC", "Adresse", "Anzahl", "BirNr"}
 
 	//set default output
-	selectedOutput = "modulo6"
+	selectedOutput = "ecos504"
 
 	widgets.NewQApplication(len(os.Args), os.Args)
 
