@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -25,7 +26,7 @@ func main() {
 
 	// Take parameters from the command line
 	path := flag.String("path", "/", "This is the path of the directory that contains the file you want to ")
-	ext_type := flag.String("ext_type", ".cg", "This is the extension of the file that will be created")
+	ext_type := flag.String("ext_type", ".cg", "This is the extension of the file to search for")
 	flag.Parse()
 
 	if len(os.Args) < 2 || *path == "" || *ext_type == "" {
@@ -38,7 +39,7 @@ func main() {
 		fileExtension := filepath.Ext(path)
 		if fileExtension == *ext_type {
 			files = append(files, path)
-
+			processFile(path, info.Name(), *ext_type)
 		}
 		return nil
 	})
@@ -72,12 +73,55 @@ func main() {
 	//checkError("Cannot read the file", err)
 }
 
-func processFile(path, name string) error {
+func processFile(path, name, ext_type string) error {
+	// Open the file in input
 	fi, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer fi.Close()
+
+	//find the position of the dot
+	dot := len(path) - len(ext_type)
+	// Open or create the output file
+	fo, err := os.Create(path[0:dot] + "_modified" + path[dot:])
+	if err != nil {
+		return err
+	}
+	// Close fo on exit and check for its returned error
+	defer func() {
+		if err := fo.Close(); err != nil {
+			return
+		}
+	}()
+
+	// Create a writer
+	writer := bufio.NewWriter(fo)
+	defer writer.Flush()
+
+	scanner := bufio.NewScanner(fi)
+	for scanner.Scan() {
+		//var res []string
+		// Take a line from the file
+		line := scanner.Text()
+		writer.WriteString(line + "\n")
+		/*
+			// Iterate all the rules in the set to search on rule to apply
+			for _, elem := range rule_sets {
+				res = regexp.MustCompile(elem.re).FindStringSubmatch(line)
+				if len(res) > 0 {
+					// Apply the replace_with string
+					output_string := res[1] + " - " + elem.replace_with
+					fmt.Println(output_string)
+					writer.WriteString(output_string + "\n")
+				}
+			}
+		*/
+	}
+	if err := scanner.Err(); err != nil {
+		fmt.Println(err)
+	}
+
 	return nil
 }
 
