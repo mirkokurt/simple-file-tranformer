@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -27,6 +28,7 @@ type table_header struct {
 var rule_sets []rule
 var table_headers map[string][]string
 var selectedOutput string
+var queryInterval string
 
 func main() {
 
@@ -38,6 +40,7 @@ func main() {
 	table_headers["ecos504"] = []string{"Channel number", "Data type AS [Vas]", "Scaling[A]", "Offset[B]", "Modbus Slave Address", "Data point type", "Start Address", "Modbus data type", "Byte order", "Word order", "DWord order", "Bit selection", "Bit quantity", "Query Interval", "SingleTg", "Description"}
 	table_headers["modulo5"] = []string{"Description", "Channel number", "Communication direction", "Data type AS [Vas]", "Data type FS [Vfs]", "Scaling parameter [A]", "Scaling parameter [B]", "Byte order", "Threshold", "Send-Priority", "Modbus Slave address", "Function-Code", "Address", "Bit number"}
 	table_headers["modulo6"] = []string{"Channel number", "Communication direction", "Data type AS [Vas]", "Scaling[A]", "Offset[B]", "Modbus Slave Address", "Data point type", "Start Address", "Modbus data type", "Byte order", "Word order", "DWord order", "Bit selection", "Bit quantity", "Query Interval", "SingleTg", "Description"}
+	table_headers["modulo5_old"] = []string{"description", "channel nbr", "direction", "DP type AS", "DP type FS", "scaling parameter A", "scaling parameter B", "byte order", "COV inc", "priority", "triggerd", "Slave Adress", "FC", "Adresse", "Anzahl", "BirNr"}
 
 	//set default output
 	selectedOutput = "modulo6"
@@ -113,20 +116,22 @@ func main() {
 	})
 	selectOutput.SetMinimumSize(size)
 
-	//box := widgets.NewQMessageBox(nil)
-
 	tranformlabel := widgets.NewQLabel2("", nil, core.Qt__BypassWindowManagerHint)
 	tranformButton := widgets.NewQPushButton2("Trasforma", nil)
 	tranformButton.ConnectClicked(func(checked bool) {
-		queryInterval := inputQueryInterval.Text()
+		queryInterval = inputQueryInterval.Text()
 		_, err := strconv.Atoi(queryInterval)
 		if err != nil {
 			widgets.QMessageBox_Warning(widget, "Errore", "Inserisci un Query Interval valido", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else if fileName == "" || outputfileName == "" {
 			widgets.QMessageBox_Warning(widget, "Errore", "Seleziona prima i file!", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else {
-			transform(fileName, outputfileName, queryInterval, widget)
-			widgets.QMessageBox_Information(widget, "Errore", "File generato con successo", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			err := transform(fileName, outputfileName, queryInterval, widget)
+			if err != nil {
+				widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			} else {
+				widgets.QMessageBox_Information(widget, "Successo!", "File generato con successo", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			}
 		}
 	})
 
@@ -138,7 +143,7 @@ func main() {
 	comboOutput.SetEditable(true)
 	comboOutput.LineEdit().SetReadOnly(true)
 	comboOutput.LineEdit().SetAlignment(core.Qt__AlignHCenter)
-	comboOutput.AddItems([]string{"ecos504", "modulo6"})
+	comboOutput.AddItems([]string{"ecos504", "modulo6", "modulo5", "modulo5_old"})
 	comboOutput.ConnectCurrentIndexChanged(func(index int) { setOutputType(index) })
 
 	formLayout.AddRow(selectInput, labelInput)
@@ -146,7 +151,6 @@ func main() {
 	formLayout.AddRow(inputQueryInterval, labelQueryInterval)
 	formLayout.AddRow(labelCombo, comboOutput)
 	formLayout.AddRow(tranformlabel, tranformButton)
-	//formLayout.AddRow(labelCombo, logo)
 
 	window.SetCentralWidget(widget)
 	window.Show()
@@ -161,31 +165,34 @@ func setOutputType(index int) {
 		selectedOutput = "ecos504"
 	case 1:
 		selectedOutput = "modulo6"
+	case 2:
+		selectedOutput = "modulo5"
+	case 3:
+		selectedOutput = "modulo5_old"
 	default:
 		selectedOutput = "ecos504"
 	}
 
 }
 
-func transform(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) {
+func transform(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) error {
 
 	// Open the input file
 	fr, err := os.Open(inputfile)
 	if err != nil {
-		fmt.Print("There has been an error!: ", err)
+		return err
 	}
 	defer fr.Close()
 
 	// Open the output file
 	fo, err := os.Create(outputfile)
 	if err != nil {
-		widgets.QMessageBox_Information(widget, "Errore", "Attenzione il file di output è aperto e non può essere scritto", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
-		return
+		return errors.New("Attenzione il file di output è aperto e non può essere scritto")
 	}
 	// Close fo on exit and check for its returned error
 	defer func() {
 		if err := fo.Close(); err != nil {
-			panic(err)
+			fmt.Printf("Error closing output file: ", err)
 		}
 	}()
 
@@ -202,7 +209,7 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 
 	// Init the line counter
 	line := 0
-
+	isOld := false
 	for {
 		// Increment the line
 		line++
@@ -210,9 +217,12 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 		if err == io.EOF {
 			break
 		}
+		if err != nil {
+
+		}
 		checkError("Cannot read the file", err)
 
-		// Write the output file's line
+		//Init the variable that check if it is an old version or a new one
 
 		// If one of the first tweo lines
 		if line < 3 {
@@ -220,24 +230,65 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 			err = writer.Write(rec)
 			checkError("Cannot write to file", err)
 		} else if line == 3 {
+			//Detect if it is an old version or a new one
+			isOld = detectTypeFromHeader(rec[10])
+
 			// Write the selected device table header
 			err = writer.Write(table_headers[selectedOutput])
 			checkError("Cannot write to file", err)
 		} else {
 			// Write the scrambled line
-			if selectedOutput == "modulo6" {
-				// Modulo 6
-				err = writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
-			} else if selectedOutput == "ecos504" {
-				// Ecos 504
-				err = writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
-				checkError("Cannot write to file", err)
-			} else {
-				widgets.QMessageBox_Warning(widget, "Errore", "Seleziona la tipologia di file di output", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
-			}
-
+			err = rewriteContent(writer, rec, isOld)
+		}
+		if err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
+
+	if selectedOutput == "modulo6" {
+		// Modulo 6
+		if isOld {
+			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[14], "1", queryInterval, "0", rec[0]})
+		} else {
+			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
+		}
+	} else if selectedOutput == "ecos504" {
+		// Ecos 504
+		if isOld {
+			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[14], "1", queryInterval, "0", rec[0]})
+		} else {
+			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
+		}
+	} else if selectedOutput == "modulo5" {
+		// Modulo 5
+		if isOld {
+			return writer.Write([]string{rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], rec[8], rec[9], rec[11], rec[12], rec[13], rec[15]})
+		} else {
+			// If it's already a new version there is no reason to change it
+			return writer.Write(rec)
+		}
+	} else if selectedOutput == "modulo5_old" {
+		// Modulo 5 old (v < 1.16)
+		if isOld {
+			// If it's already an old version there is no reason to change it
+			return writer.Write(rec)
+		} else {
+			return writer.Write([]string{rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], rec[8], rec[9], "0", rec[10], rec[11], rec[12], "1", rec[13]})
+		}
+	} else {
+		return errors.New("Impossibile riconoscere il tipo di output selezionato")
+	}
+}
+
+func detectTypeFromHeader(check string) bool {
+	if check == "triggerd" {
+		return true
+	}
+	return false
 }
 
 func checkError(message string, err error) {
