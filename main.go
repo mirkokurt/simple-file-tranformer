@@ -266,16 +266,16 @@ func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
 	if selectedOutput == "modulo6" {
 		// Modulo 6
 		if isOld {
-			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[15], "1", queryInterval, "0", rec[0]})
+			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[15], "1", queryInterval, "0", rec[0]})
 		} else {
-			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
+			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[13], "1", queryInterval, "0", rec[0]})
 		}
 	} else if selectedOutput == "ecos504" {
 		// Ecos 504
 		if isOld {
-			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[15], "1", queryInterval, "0", rec[0]})
+			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[15], "1", queryInterval, "0", rec[0]})
 		} else {
-			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
+			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[13], "1", queryInterval, "0", rec[0]})
 		}
 	} else if selectedOutput == "modulo5" {
 		// Modulo 5
@@ -299,7 +299,7 @@ func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
 }
 
 func detectTypeFromHeader(check string) bool {
-	if check == "triggerd" {
+	if check == "triggerd" || check == "Trigger: mode" {
 		return true
 	}
 	return false
@@ -314,6 +314,8 @@ func checkError(message string, err error) {
 func translateDataTypeFS(input string) string {
 	var output string
 	switch input {
+	case "0":
+		output = "0"
 	case "1":
 		output = "1"
 	case "2":
@@ -363,4 +365,14 @@ func translateDataTypeAS(dataTypeFS string, DdataTypeAS string) string {
 	}
 
 	return output
+}
+
+// Just a mock translation for future implementation
+func translateByteOrder(byteOrder string) string {
+	return "1"
+}
+
+// Just a mock translation for future implementation
+func translateWordOrder(byteOrder string) string {
+	return byteOrder
 }
