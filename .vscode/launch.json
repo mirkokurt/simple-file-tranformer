@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${file}",
-            "args": ["--path", "C:\\Users\\curtomir\\Desktop\\test_dir", "--ext_type", ".txt"]
+            "args": ["--dir_path", "C:\\Users\\curtomir\\Desktop\\test_dir", "--ext_type", ".csv", "--output_ext_type", ".gr"]
         }
     ]
 }
