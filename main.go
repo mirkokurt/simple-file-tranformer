@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 type rule struct {
@@ -19,118 +21,119 @@ type table_header struct {
 	header   []string
 }
 
+type fileDescriptor struct {
+	complete_path string
+	name          string
+}
+
 var rule_sets []rule
 
+var (
+	dir_path        = flag.String("dir_path", "/", "This is the path of the directory that contains the file you want to ")
+	ext_type        = flag.String("ext_type", ".csv", "This is the extension of the file to search for")
+	output_ext_type = flag.String("output_ext_type", ".gr", "This is the extension of the file to search for")
+)
+
 func main() {
-	var files []string
 
 	// Take parameters from the command line
-	path := flag.String("path", "/", "This is the path of the directory that contains the file you want to ")
-	ext_type := flag.String("ext_type", ".cg", "This is the extension of the file to search for")
+
 	flag.Parse()
 
-	if len(os.Args) < 2 || *path == "" || *ext_type == "" {
+	if len(os.Args) < 2 || *dir_path == "" || *ext_type == "" {
 		usage("Please don't insert empty arguments!!")
 	}
 
-	// Check in the path for a file with the defined type
-	err := filepath.Walk(*path, func(path string, info os.FileInfo, err error) error {
-		// If the file has the correct extension
-		fileExtension := filepath.Ext(path)
-		if fileExtension == *ext_type {
-			files = append(files, path)
-			processFile(path, info.Name(), *ext_type)
+	toBeProcessed := make(chan fileDescriptor, 100)
+	go processFile(toBeProcessed)
+
+	for {
+		// Check in the path for a file with the defined type
+		err := filepath.Walk(*dir_path, func(path string, info os.FileInfo, err error) error {
+			// If the file has the correct extension
+			fileExtension := filepath.Ext(path)
+			if fileExtension == *ext_type {
+				toBeProcessed <- fileDescriptor{path, info.Name()}
+			}
+			return nil
+		})
+		if err != nil {
+			panic(err)
 		}
-		return nil
-	})
-	if err != nil {
-		panic(err)
+		//checkError("Cannot read the file", err)
+
+		// Wait one second before checking for the files again
+		time.Sleep(1000 * time.Millisecond)
 	}
-	for _, file := range files {
 
-		// If the file has the correct extension
+}
 
-		// Open the file
-		/*fi, err := os.Open(inputfile)
+func processFile(toBeProcessed chan fileDescriptor) error {
+	for {
+		//Wait for a new file found
+		file_tpb := <-toBeProcessed
+
+		fmt.Printf("Processing the file %s \n", file_tpb.name)
+
+		// Open the file in input
+		fi, err := os.Open(file_tpb.complete_path)
 		if err != nil {
-			return err
+			fmt.Printf("An error occurred opening the file: %s \n", err)
+			continue
 		}
-		defer fi.Close()
 
-		// Open the output file
-		fo, err := os.Create(outputfile)
+		// Create the path of the new file
+		new_file_path := strings.ReplaceAll(file_tpb.complete_path, *ext_type, *output_ext_type)
+
+		fmt.Printf("Creating the file %s \n", new_file_path)
+		// Open or create the output file
+		fo, err := os.Create(new_file_path)
 		if err != nil {
-			fmt.Printf("Error creating the output file: ", err)
+			fmt.Printf("An error occurred while creating the output file: %s \n", err)
+			continue
 		}
 		// Close fo on exit and check for its returned error
 		defer func() {
 			if err := fo.Close(); err != nil {
-				fmt.Printf("Error closing output file: ", err)
+				fmt.Printf("An error occurred while closing the file: %s \n", err)
+				return
 			}
-		}()*/
-		fmt.Println(file)
-	}
-	//checkError("Cannot read the file", err)
-}
+		}()
 
-func processFile(path, name, ext_type string) error {
-	// Open the file in input
-	fi, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer fi.Close()
+		// Create a writer
+		writer := bufio.NewWriter(fo)
 
-	//find the position of the dot
-	dot := len(path) - len(ext_type)
-	// Open or create the output file
-	fo, err := os.Create(path[0:dot] + "_modified" + path[dot:])
-	if err != nil {
-		return err
-	}
-	// Close fo on exit and check for its returned error
-	defer func() {
-		if err := fo.Close(); err != nil {
-			return
+		scanner := bufio.NewScanner(fi)
+		for scanner.Scan() {
+			// Take a line from the file
+			line := scanner.Text()
+			writer.WriteString(line + "\n")
 		}
-	}()
+		writer.Flush()
 
-	// Create a writer
-	writer := bufio.NewWriter(fo)
-	defer writer.Flush()
+		if err := scanner.Err(); err != nil {
+			fmt.Printf("An error occurred scanning the input file, the file will not be deleted: %s \n", err)
+			continue
+		}
 
-	scanner := bufio.NewScanner(fi)
-	for scanner.Scan() {
-		//var res []string
-		// Take a line from the file
-		line := scanner.Text()
-		writer.WriteString(line + "\n")
-		/*
-			// Iterate all the rules in the set to search on rule to apply
-			for _, elem := range rule_sets {
-				res = regexp.MustCompile(elem.re).FindStringSubmatch(line)
-				if len(res) > 0 {
-					// Apply the replace_with string
-					output_string := res[1] + " - " + elem.replace_with
-					fmt.Println(output_string)
-					writer.WriteString(output_string + "\n")
-				}
-			}
-		*/
+		fi.Close()
+		// Removing file from the directory
+		// Using Remove() function
+		err = os.Remove(file_tpb.complete_path)
+		if err != nil {
+			fmt.Printf("The file %s cannot be removed due to error: %s \n", file_tpb.name, err)
+		}
+
 	}
-	if err := scanner.Err(); err != nil {
-		fmt.Println(err)
-	}
-
-	return nil
 }
 
 func usage(errmsg string) {
 	fmt.Fprintf(os.Stderr,
 		"%s\n\n"+
-			"usage: %s <command> <password>\n"+
-			"       where <username> is the username to be created (not encrypted) \n"+
-			"       and <password> is the password you want to encrypt\n",
+			"usage: %s <dir_path> <ext_type> [output_ext_type]\n"+
+			"       where <dir_path> is the directory where search the input files \n"+
+			"       and <ext_type> is the extension of the files to search for\n"+
+			"       and <output_ext_type> is the exntesion of the output files to be created\n",
 		errmsg, os.Args[0])
 	os.Exit(2)
 }
