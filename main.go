@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/gui"
@@ -29,11 +30,12 @@ var rule_sets []rule
 var table_headers map[string][]string
 var selectedOutput string
 var queryInterval string
+var outputfileName string
 
 func main() {
 
 	var fileName string
-	var outputfileName string
+	outputfileName = ""
 
 	table_headers = make(map[string][]string)
 
@@ -82,6 +84,9 @@ func main() {
 	inputQueryInterval.SetAlignment(core.Qt__AlignHCenter)
 	inputQueryInterval.SetMinimumSize(size)
 
+	labelOutput := widgets.NewQLabel2("<Non selezionato>", nil, core.Qt__BypassWindowManagerHint)
+	labelOutput.SetAlignment(core.Qt__AlignHCenter)
+
 	selectInput := widgets.NewQPushButton2("Scegli file input", nil)
 	selectInput.ConnectClicked(func(checked bool) {
 
@@ -94,12 +99,11 @@ func main() {
 		fileName = fileDialog.GetOpenFileName(nil, "Open File", "C:\\Users\\curtomir\\Desktop", "Comma Separated (*.csv)", "", widgets.QFileDialog__Option(fileDialog.AcceptMode()))
 		fmt.Printf("file path is %s", fileName)
 		labelInput.SetText(fileName)
+		outputfileName = strings.ReplaceAll(fileName, ".csv", "") + "_" + selectedOutput + ".csv"
+		labelOutput.SetText(outputfileName)
 
 	})
 	selectInput.SetMinimumSize(size)
-
-	labelOutput := widgets.NewQLabel2("<Non selezionato>", nil, core.Qt__BypassWindowManagerHint)
-	labelOutput.SetAlignment(core.Qt__AlignHCenter)
 
 	selectOutput := widgets.NewQPushButton2("Scegli file output", nil)
 	selectOutput.ConnectClicked(func(checked bool) {
@@ -144,7 +148,7 @@ func main() {
 	comboOutput.LineEdit().SetReadOnly(true)
 	comboOutput.LineEdit().SetAlignment(core.Qt__AlignHCenter)
 	comboOutput.AddItems([]string{"ecos504", "modulo6", "modulo5", "modulo5_old"})
-	comboOutput.ConnectCurrentIndexChanged(func(index int) { setOutputType(index) })
+	comboOutput.ConnectCurrentIndexChanged(func(index int) { setOutputType(index, labelOutput) })
 
 	formLayout.AddRow(selectInput, labelInput)
 	formLayout.AddRow(selectOutput, labelOutput)
@@ -158,7 +162,7 @@ func main() {
 	widgets.QApplication_Exec()
 }
 
-func setOutputType(index int) {
+func setOutputType(index int, labelOutput *widgets.QLabel) {
 
 	switch index {
 	case 0:
@@ -171,6 +175,14 @@ func setOutputType(index int) {
 		selectedOutput = "modulo5_old"
 	default:
 		selectedOutput = "ecos504"
+	}
+	if outputfileName != "" {
+		outputfileName = strings.ReplaceAll(outputfileName, "_ecos504", "")
+		outputfileName = strings.ReplaceAll(outputfileName, "_modulo6", "")
+		outputfileName = strings.ReplaceAll(outputfileName, "_modulo5_old", "")
+		outputfileName = strings.ReplaceAll(outputfileName, "_modulo5", "")
+		outputfileName = strings.ReplaceAll(outputfileName, ".csv", "") + "_" + selectedOutput + ".csv"
+		labelOutput.SetText(outputfileName)
 	}
 
 }
@@ -222,8 +234,6 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 		}
 		checkError("Cannot read the file", err)
 
-		//Init the variable that check if it is an old version or a new one
-
 		// If one of the first tweo lines
 		if line < 3 {
 			// Write the exact same line
@@ -252,14 +262,14 @@ func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
 	if selectedOutput == "modulo6" {
 		// Modulo 6
 		if isOld {
-			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[14], "1", queryInterval, "0", rec[0]})
+			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[15], "1", queryInterval, "0", rec[0]})
 		} else {
 			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
 		}
 	} else if selectedOutput == "ecos504" {
 		// Ecos 504
 		if isOld {
-			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[14], "1", queryInterval, "0", rec[0]})
+			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[15], "1", queryInterval, "0", rec[0]})
 		} else {
 			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), rec[7], rec[7], "0", rec[13], "1", queryInterval, "0", rec[0]})
 		}
