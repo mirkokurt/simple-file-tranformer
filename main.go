@@ -234,9 +234,13 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 		}
 		checkError("Cannot read the file", err)
 
-		// If one of the first tweo lines
+		// If one of the first two lines
 		if line < 3 {
-			// Write the exact same line
+			if selectedOutput == "modulo6" && line == 1 {
+				// For "modulo6" (that has some specific constraints) the first value should be "EY6AS80 Modbus Master"
+				rec[0] = "EY6AS80 Modbus Master"
+			}
+			// Write the first two line as is (exept the first for "modulo6")
 			err = writer.Write(rec)
 			checkError("Cannot write to file", err)
 		} else if line == 3 {
