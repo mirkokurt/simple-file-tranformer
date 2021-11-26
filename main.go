@@ -236,13 +236,13 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 
 		// If one of the first two lines
 		if line < 3 {
-			if selectedOutput == "modulo6" && line == 1 {
-				// For "modulo6" (that has some specific constraints) the first value should be "EY6AS80 Modbus Master"
-				rec[0] = "EY6AS80 Modbus Master"
+			// TODO: For "modulo 6" skip the first lines Understand why the "modulo6" keeps stopping import.  rec[0] = "EY6AS80 Modbus Master" does not fully work
+			if selectedOutput != "modulo6" {
+				// Write the first two line as is (exept the first for "modulo6")
+				err = writer.Write(rec)
+				checkError("Cannot write to file", err)
 			}
-			// Write the first two line as is (exept the first for "modulo6")
-			err = writer.Write(rec)
-			checkError("Cannot write to file", err)
+
 		} else if line == 3 {
 			//Detect if it is an old version or a new one
 			isOld = detectTypeFromHeader(rec[10])
