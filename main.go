@@ -21,7 +21,7 @@ type table_header struct {
 	header   []string
 }
 
-type fileDescriptor struct {
+type fileInfo struct {
 	complete_path string
 	name          string
 }
@@ -44,7 +44,7 @@ func main() {
 		usage("Please don't insert empty arguments!!")
 	}
 
-	toBeProcessed := make(chan fileDescriptor, 100)
+	toBeProcessed := make(chan fileInfo, 1)
 	go processFile(toBeProcessed)
 
 	for {
@@ -53,7 +53,7 @@ func main() {
 			// If the file has the correct extension
 			fileExtension := filepath.Ext(path)
 			if fileExtension == *ext_type {
-				toBeProcessed <- fileDescriptor{path, info.Name()}
+				toBeProcessed <- fileInfo{path, info.Name()}
 			}
 			return nil
 		})
@@ -68,7 +68,7 @@ func main() {
 
 }
 
-func processFile(toBeProcessed chan fileDescriptor) error {
+func processFile(toBeProcessed chan fileInfo) error {
 	for {
 		//Wait for a new file found
 		file_tpb := <-toBeProcessed
