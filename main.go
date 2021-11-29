@@ -2,37 +2,38 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
-
-type rule struct {
-	re           string
-	input_string string
-	replace_with string
-}
-
-type table_header struct {
-	dev_type string
-	header   []string
-}
 
 type fileInfo struct {
 	complete_path string
 	name          string
 }
 
-var rule_sets []rule
+type Record struct {
+	Codice_soggetto  string `json:"cod. soggetto"`
+	Tipo_Documento   string `json:"tipo documento"`
+	Numero_Documento string `json:"numero documento"`
+	Data_Documento   string `json:"data documento"`
+	Descr_parte1     string `json:"descrizione documento (parte1)"`
+	Descr_parte2     string `json:"descrizione documento (parte 2)"`
+}
 
 var (
 	dir_path        = flag.String("dir_path", "/", "This is the path of the directory that contains the file you want to ")
-	ext_type        = flag.String("ext_type", ".csv", "This is the extension of the file to search for")
+	ext_type        = flag.String("ext_type", ".json", "This is the extension of the file to search for")
 	output_ext_type = flag.String("output_ext_type", ".gr", "This is the extension of the file to search for")
 )
+
+const Tab string = "\t"
 
 func main() {
 
@@ -63,7 +64,7 @@ func main() {
 		//checkError("Cannot read the file", err)
 
 		// Wait one second before checking for the files again
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(10000 * time.Millisecond)
 	}
 
 }
@@ -75,11 +76,15 @@ func processFile(toBeProcessed chan fileInfo) error {
 
 		fmt.Printf("Processing the file %s \n", file_tpb.name)
 
-		// Open the file in input
-		fi, err := os.Open(file_tpb.complete_path)
+		file, _ := ioutil.ReadFile(file_tpb.complete_path)
+
+		// Create an empty record data
+		rd := Record{}
+
+		//Marshal the file content into the empty json structure
+		err := json.Unmarshal([]byte(file), &rd)
 		if err != nil {
-			fmt.Printf("An error occurred opening the file: %s \n", err)
-			continue
+			fmt.Printf("The file %s cannot be processed due to error: %s \n", file_tpb.name, err)
 		}
 
 		// Create the path of the new file
@@ -103,21 +108,28 @@ func processFile(toBeProcessed chan fileInfo) error {
 		// Create a writer
 		writer := bufio.NewWriter(fo)
 
-		scanner := bufio.NewScanner(fi)
-		for scanner.Scan() {
-			// Take a line from the file
-			line := scanner.Text()
-			writer.WriteString(line + "\n")
-		}
+		writer.WriteString("I" + Tab +
+			"034" + Tab +
+			shortDocType(rd.Tipo_Documento) + Tab +
+			rd.Codice_soggetto + Tab +
+			rd.Tipo_Documento + Tab +
+			rd.Numero_Documento + Tab +
+			"*" + Tab +
+			formatDate(rd.Data_Documento) + Tab +
+			rd.Tipo_Documento + " " + rd.Numero_Documento + Tab +
+			rd.Descr_parte1 + " - " + rd.Descr_parte2 + Tab +
+			strings.ReplaceAll(file_tpb.name, *ext_type, ".pdf") + Tab +
+			"0" + Tab +
+			"*" + Tab +
+			"0" + Tab +
+			"0" + Tab +
+			"*" + Tab +
+			"aida" + Tab +
+			"X" +
+			"\r\n")
 		writer.Flush()
 
-		if err := scanner.Err(); err != nil {
-			fmt.Printf("An error occurred scanning the input file, the file will not be deleted: %s \n", err)
-			continue
-		}
-
-		fi.Close()
-		// Removing file from the directory
+		// Removing file from the directory TODO: better moving the file to another dir
 		// Using Remove() function
 		err = os.Remove(file_tpb.complete_path)
 		if err != nil {
@@ -125,6 +137,36 @@ func processFile(toBeProcessed chan fileInfo) error {
 		}
 
 	}
+}
+
+//inline version of if_then_else
+func inline_if(condition bool, a interface{}, b interface{}) interface{} {
+	if condition {
+		return a
+	}
+	return b
+}
+
+func shortDocType(docType string) string {
+	switch docType {
+	case "DDTF":
+		return "F"
+	case "DDTC":
+		return "C"
+	default:
+		return "F"
+	}
+}
+
+func formatDate(date string) string {
+	i, err := strconv.ParseInt(date, 10, 64)
+	if err != nil {
+		fmt.Println("Error formatting the date")
+		return ""
+	}
+	tm := time.UnixMilli(i)
+	//fmt.Println(tm)
+	return fmt.Sprintf(tm.Format("02/01/2006"))
 }
 
 func usage(errmsg string) {
