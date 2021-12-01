@@ -100,13 +100,6 @@ func processFile(toBeProcessed chan fileInfo) error {
 			fmt.Printf("An error occurred while creating the output file: %s \n", err)
 			continue
 		}
-		// Close fo on exit and check for its returned error
-		defer func() {
-			if err := fo.Close(); err != nil {
-				fmt.Printf("An error occurred while closing the file: %s \n", err)
-				return
-			}
-		}()
 
 		// Create a writer
 		writer := bufio.NewWriter(fo)
@@ -136,11 +129,24 @@ func processFile(toBeProcessed chan fileInfo) error {
 
 		writer.Flush()
 
-		// Removing file from the directory TODO: better moving the file to another dir
-		// Using Remove() function
-		err = os.Remove(file_tpb.complete_path)
+		// TODO: in the production version the file must be removed
+		// Removing file from the directory
+		/*err = os.Remove(file_tpb.complete_path)
 		if err != nil {
 			fmt.Printf("The file %s cannot be removed due to error: %s \n", file_tpb.name, err)
+		}*/
+
+		// Close fo on exit and check for its returned error
+		if err := fo.Close(); err != nil {
+			fmt.Printf("An error occurred while closing the file: %s \n", err)
+			continue
+		}
+
+		// Rename the file
+		err = os.Rename(file_tpb.complete_path, strings.ReplaceAll(file_tpb.complete_path, *ext_type, ".bck"))
+		if err != nil {
+			fmt.Printf("Error renaming the file: %s \n", err)
+			continue
 		}
 
 	}
