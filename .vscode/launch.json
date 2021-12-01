@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${file}",
-            "args": ["--dir_path", "C:\\Users\\curtomir\\Desktop\\test_dir", "--ext_type", ".json", "--output_ext_type", ".gr"]
+            "args": ["--dir_path", "\\\\10.25.6.98\\Aida", "--ext_type", ".json", "--output_ext_type", ".gr"]
         }
     ]
 }

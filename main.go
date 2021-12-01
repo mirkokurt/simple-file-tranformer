@@ -35,6 +35,8 @@ var (
 
 const Tab string = "\t"
 
+var globalCounter = 0
+
 func main() {
 
 	// Take parameters from the command line
@@ -61,7 +63,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		//checkError("Cannot read the file", err)
 
 		// Wait one second before checking for the files again
 		time.Sleep(10000 * time.Millisecond)
@@ -87,8 +88,10 @@ func processFile(toBeProcessed chan fileInfo) error {
 			fmt.Printf("The file %s cannot be processed due to error: %s \n", file_tpb.name, err)
 		}
 
+		globalCounter++
 		// Create the path of the new file
-		new_file_path := strings.ReplaceAll(file_tpb.complete_path, *ext_type, *output_ext_type)
+		path := strings.ReplaceAll(file_tpb.complete_path, file_tpb.name, "")
+		new_file_path := fmt.Sprintf("%s%s%s%d%s", path, "gen", rd.Tipo_Documento, globalCounter, *output_ext_type)
 
 		fmt.Printf("Creating the file %s \n", new_file_path)
 		// Open or create the output file
@@ -108,15 +111,18 @@ func processFile(toBeProcessed chan fileInfo) error {
 		// Create a writer
 		writer := bufio.NewWriter(fo)
 
+		cleanDocumentNumber := strings.ReplaceAll(rd.Numero_Documento, "-", "")
+
 		writer.WriteString("I" + Tab +
 			"034" + Tab +
 			shortDocType(rd.Tipo_Documento) + Tab +
-			rd.Codice_soggetto + Tab +
+			strings.ReplaceAll(rd.Codice_soggetto, "34-", "") + Tab +
 			rd.Tipo_Documento + Tab +
-			rd.Numero_Documento + Tab +
+			cleanDocumentNumber + Tab +
 			"*" + Tab +
 			formatDate(rd.Data_Documento) + Tab +
-			rd.Tipo_Documento + " " + rd.Numero_Documento + Tab +
+			// Manage differences between DDTC and others
+			inline_if(rd.Tipo_Documento == "DDTC", cleanDocumentNumber, rd.Descr_parte1).(string) + Tab +
 			rd.Descr_parte1 + " - " + rd.Descr_parte2 + Tab +
 			strings.ReplaceAll(file_tpb.name, *ext_type, ".pdf") + Tab +
 			"0" + Tab +
@@ -127,6 +133,7 @@ func processFile(toBeProcessed chan fileInfo) error {
 			"aida" + Tab +
 			"X" +
 			"\r\n")
+
 		writer.Flush()
 
 		// Removing file from the directory TODO: better moving the file to another dir
