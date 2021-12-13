@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,15 @@ type Record struct {
 	Numero_Documento string `json:"numero documento"`
 	Data_Documento   string `json:"data documento"`
 	Descr_parte1     string `json:"descrizione documento (parte1)"`
-	Descr_parte2     string `json:"descrizione documento (parte 2)"`
+	Descr_parte2     string `json:"descrizione documento (parte2)"`
+	Descr_parte3     string `json:"descrizione documento (parte3)"`
+	Descr_parte4     string `json:"descrizione documento (parte4)"`
+	Descr_parte5     string `json:"descrizione documento (parte5)"`
+	Descr_parte6     string `json:"descrizione documento (parte6)"`
+	Descr_parte7     string `json:"descrizione documento (parte7)"`
+	Descr_parte8     string `json:"descrizione documento (parte8)"`
+	Descr_parte9     string `json:"descrizione documento (parte9)"`
+	Descr_parte10    string `json:"descrizione documento (parte10)"`
 }
 
 var (
@@ -116,7 +125,7 @@ func processFile(toBeProcessed chan fileInfo) error {
 			formatDate(rd.Data_Documento) + Tab +
 			// Manage differences between DDTC and others
 			inline_if(rd.Tipo_Documento == "DDTC", cleanDocumentNumber, rd.Descr_parte1).(string) + Tab +
-			rd.Descr_parte1 + " - " + rd.Descr_parte2 + Tab +
+			printDescritpion(rd) + Tab +
 			strings.ReplaceAll(file_tpb.name, *ext_type, ".pdf") + Tab +
 			"0" + Tab +
 			"*" + Tab +
@@ -191,4 +200,24 @@ func usage(errmsg string) {
 			"       and <output_ext_type> is the exntesion of the output files to be created\n",
 		errmsg, os.Args[0])
 	os.Exit(2)
+}
+
+func printDescritpion(rd Record) string {
+	description := ""
+
+	fields := reflect.TypeOf(rd)
+	values := reflect.ValueOf(rd)
+
+	for i := 0; i < fields.NumField(); i++ {
+		field := fields.Field(i)
+		value := values.Field(i).Interface().(string)
+		if strings.HasPrefix(field.Name, "Descr_") && value != "" {
+			if len(description) == 0 {
+				description += value
+			} else {
+				description += " - " + value
+			}
+		}
+	}
+	return description
 }
