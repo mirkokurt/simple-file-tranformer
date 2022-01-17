@@ -62,7 +62,7 @@ func main() {
 	size.SetHeight(20)
 	size.SetWidth(150)
 
-	labelInput := widgets.NewQLabel2("<Non selezionato> (Seleziona Modulo 5 csv)", nil, core.Qt__BypassWindowManagerHint)
+	labelInput := widgets.NewQLabel2("<Non selezionato> (Seleziona Modulo 5 o LINX csv)", nil, core.Qt__BypassWindowManagerHint)
 	labelInput.SetAlignment(core.Qt__AlignHCenter)
 
 	labelQueryInterval := widgets.NewQLabel2("Query interval", nil, core.Qt__BypassWindowManagerHint)
@@ -458,28 +458,30 @@ func loytecToModulo5DataTypeAS(registerType string) string {
 func loytecToModulo5DataTypeFS(dataType string) string {
 	var output string
 	switch dataType {
-	case "uint8":
+	case "bit":
 		output = "0"
-	case "uint16":
+	case "uint8":
 		output = "1"
-	case "uint32":
-		output = "2"
-	case "uint64":
+	case "uint16":
 		output = "3"
-	case "int8":
-		output = "4"
-	case "int16":
+	case "uint32":
 		output = "5"
+	case "uint64":
+		output = "12"
+	case "int8":
+		output = "2"
+	case "int16":
+		output = "4"
 	case "int32":
 		output = "6"
 	case "int64":
-		output = "7"
+		output = "13"
 	case "float32":
-		output = "8"
+		output = "10"
 	case "float64":
-		output = "9"
+		output = "14"
 	default:
-		output = "0"
+		output = "3"
 	}
 
 	return output
