@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -15,18 +14,6 @@ import (
 	"github.com/therecipe/qt/widgets"
 )
 
-type rule struct {
-	re           string
-	input_string string
-	replace_with string
-}
-
-type table_header struct {
-	dev_type string
-	header   []string
-}
-
-var rule_sets []rule
 var table_headers map[string][]string
 var selectedOutput string
 var queryInterval string
@@ -130,6 +117,13 @@ func main() {
 		} else if fileName == "" || outputfileName == "" {
 			widgets.QMessageBox_Warning(widget, "Errore", "Seleziona prima i file!", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else {
+			// Check if it is a Loytec input file first and in the case perform a pre-transformation in Modulo5 file format
+			fileName, err = checkLoytec(fileName, outputfileName, queryInterval, widget)
+			if err != nil {
+				widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+			}
+
+			// Trasform the input file in the output file
 			err := transform(fileName, outputfileName, queryInterval, widget)
 			if err != nil {
 				widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
@@ -187,6 +181,81 @@ func setOutputType(index int, labelOutput *widgets.QLabel) {
 
 }
 
+func checkLoytec(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) (string, error) {
+	// Open the input file
+	fr, err := os.Open(inputfile)
+	if err != nil {
+		return "", err
+	}
+	defer fr.Close()
+
+	// Read csv values using csv.Reader
+	csvReader := csv.NewReader(fr)
+	csvReader.FieldsPerRecord = -1
+	csvReader.Comma = ';'
+
+	rec, err := csvReader.Read()
+	if err == io.EOF || !strings.Contains(rec[0], "LOYTEC") {
+		// If the input file is not a LOYTEC, return the input file and start a normal conversion
+		return inputfile, nil
+	} else {
+		// If the input file is a LOYTEC execute a pre-conversion in Modulo 5 format
+		// Create a temp output file
+		fo, err := os.Create(outputfile + ".temp")
+		if err != nil {
+			return "", errors.New("attenzione il file di output è aperto e non può essere scritto")
+		}
+		// Close fo on exit and check for its returned error
+		defer func() {
+			if err := fo.Close(); err != nil {
+				fmt.Printf("Error closing output file: %s", err)
+			}
+		}()
+
+		// Create a writer
+		writer := csv.NewWriter(fo)
+		defer writer.Flush()
+
+		writer.Comma = ';'
+
+		// Init the line counter
+		line := 1
+		channelNumber := 0
+		for {
+			// Increment the line
+			line++
+			rec, err = csvReader.Read()
+			if err == io.EOF {
+				break
+			}
+			checkError("Cannot read the file", err)
+
+			// If one of the first two lines
+			if line < 4 {
+				empty_rec := []string{"", "", ""}
+				err = writer.Write(empty_rec)
+				checkError("Cannot write to file", err)
+			} else if line >= 4 && line < 7 {
+				// Skip the lines
+			} else if line == 7 {
+				// Write the header of Modulo 5
+				err = writer.Write(table_headers["modulo5_old"])
+				checkError("Cannot write to file", err)
+			} else {
+				// Write the scrambled line
+				err = rewriteContentFoRLoytec(writer, rec, channelNumber)
+				checkError("Cannot write to file", err)
+				channelNumber++
+			}
+			if err != nil {
+				return "", err
+			}
+		}
+
+		return outputfile + ".temp", nil
+	}
+}
+
 func transform(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) error {
 
 	// Open the input file
@@ -196,10 +265,15 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 	}
 	defer fr.Close()
 
+	// Read csv values using csv.Reader
+	csvReader := csv.NewReader(fr)
+	csvReader.FieldsPerRecord = -1
+	csvReader.Comma = ';'
+
 	// Open the output file
 	fo, err := os.Create(outputfile)
 	if err != nil {
-		return errors.New("Attenzione il file di output è aperto e non può essere scritto")
+		return errors.New("attenzione il file di output è aperto e non può essere scritto")
 	}
 	// Close fo on exit and check for its returned error
 	defer func() {
@@ -214,23 +288,16 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 
 	writer.Comma = ';'
 
-	// Read csv values using csv.Reader
-	csvReader := csv.NewReader(fr)
-	csvReader.FieldsPerRecord = -1
-	csvReader.Comma = ';'
-
 	// Init the line counter
 	line := 0
 	isOld := false
+
 	for {
 		// Increment the line
 		line++
 		rec, err := csvReader.Read()
 		if err == io.EOF {
 			break
-		}
-		if err != nil {
-
 		}
 		checkError("Cannot read the file", err)
 
@@ -259,6 +326,11 @@ func transform(inputfile string, outputfile string, queryInterval string, widget
 		}
 	}
 	return nil
+}
+
+func rewriteContentFoRLoytec(writer *csv.Writer, rec []string, channelNumber int) error {
+	err := writer.Write([]string{rec[3], strconv.Itoa(channelNumber), "0", loytecToModulo5DataTypeAS(rec[5]), loytecToModulo5DataTypeFS(rec[8]), rec[10], rec[9], "0", "0", "0", "0", rec[4], loytecToModulo5FunctionCode(rec[5], rec[16]), rec[6], "1", "0"})
+	return err
 }
 
 func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
@@ -294,7 +366,7 @@ func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
 			return writer.Write([]string{rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], rec[8], rec[9], "0", rec[10], rec[11], rec[12], "1", rec[13]})
 		}
 	} else {
-		return errors.New("Impossibile riconoscere il tipo di output selezionato")
+		return errors.New("impossibile riconoscere il tipo di output selezionato")
 	}
 }
 
@@ -307,7 +379,7 @@ func detectTypeFromHeader(check string) bool {
 
 func checkError(message string, err error) {
 	if err != nil {
-		log.Fatal(message, err)
+		fmt.Println(message, err)
 	}
 }
 
@@ -362,6 +434,86 @@ func translateDataTypeAS(dataTypeFS string, DdataTypeAS string) string {
 		output = "2"
 	default:
 		output = DdataTypeAS
+	}
+
+	return output
+}
+
+func loytecToModulo5DataTypeAS(registerType string) string {
+	var output string
+	switch registerType {
+	case "INPUT":
+		output = "2"
+	case "DISCRETE":
+		output = "2"
+	case "HOLD":
+		output = "0"
+	default:
+		output = "0"
+	}
+
+	return output
+}
+
+func loytecToModulo5DataTypeFS(dataType string) string {
+	var output string
+	switch dataType {
+	case "uint8":
+		output = "0"
+	case "uint16":
+		output = "1"
+	case "uint32":
+		output = "2"
+	case "uint64":
+		output = "3"
+	case "int8":
+		output = "4"
+	case "int16":
+		output = "5"
+	case "int32":
+		output = "6"
+	case "int64":
+		output = "7"
+	case "float32":
+		output = "8"
+	case "float64":
+		output = "9"
+	default:
+		output = "0"
+	}
+
+	return output
+}
+
+func loytecToModulo5FunctionCode(registerType string, Direction string) string {
+	output := "0"
+
+	if registerType == "DISCRETE" {
+		output = "2"
+	}
+
+	if registerType == "COIL" {
+		if Direction == "Input" {
+			output = "1"
+		} else if Direction == "Output" {
+			output = "5"
+		} else if Direction == "Value" {
+			output = "5"
+		}
+	}
+
+	if registerType == "INPUT" {
+		output = "4"
+	}
+
+	if registerType == "HOLD" {
+		if Direction == "Input" {
+			output = "3"
+		} else if Direction == "Output" {
+			output = "6"
+		} else if Direction == "Value" {
+			output = "6"
+		}
 	}
 
 	return output
