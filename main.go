@@ -1,10 +1,7 @@
 package main
 
 import (
-	"encoding/csv"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -13,11 +10,6 @@ import (
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/widgets"
 )
-
-var table_headers map[string][]string
-var selectedOutput string
-var queryInterval string
-var outputfileName string
 
 func main() {
 
@@ -117,18 +109,27 @@ func main() {
 		} else if fileName == "" || outputfileName == "" {
 			widgets.QMessageBox_Warning(widget, "Errore", "Seleziona prima i file!", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else {
-			// Check if it is a Loytec input file first and in the case perform a pre-transformation in Modulo5 file format
-			fileName, err = checkLoytec(fileName, outputfileName, queryInterval, widget)
-			if err != nil {
-				widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
-			}
 
-			// Trasform the input file in the output file
-			err := transform(fileName, outputfileName, queryInterval, widget)
+			// Check if it is a Loytec input file first and in the case perform a pre-transformation in Modulo5 file format
+			isLoytech, err := isLoytech(fileName)
+
 			if err != nil {
 				widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 			} else {
-				widgets.QMessageBox_Information(widget, "Successo!", "File generato con successo", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				if isLoytech {
+					fileName, err = transformLoytecToModulo5(fileName, outputfileName, queryInterval, widget)
+					if err != nil {
+						widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+					}
+				}
+
+				// Trasform the input file in the output file
+				err = transformFromModulo5ToSelected(fileName, outputfileName, queryInterval, widget)
+				if err != nil {
+					widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				} else {
+					widgets.QMessageBox_Information(widget, "Successo!", "File generato con successo", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				}
 			}
 		}
 	})
@@ -181,352 +182,8 @@ func setOutputType(index int, labelOutput *widgets.QLabel) {
 
 }
 
-func checkLoytec(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) (string, error) {
-	// Open the input file
-	fr, err := os.Open(inputfile)
-	if err != nil {
-		return "", err
-	}
-	defer fr.Close()
-
-	// Read csv values using csv.Reader
-	csvReader := csv.NewReader(fr)
-	csvReader.FieldsPerRecord = -1
-	csvReader.Comma = ';'
-
-	rec, err := csvReader.Read()
-	if err == io.EOF || !strings.Contains(rec[0], "LOYTEC") {
-		// If the input file is not a LOYTEC, return the input file and start a normal conversion
-		return inputfile, nil
-	} else {
-		// If the input file is a LOYTEC execute a pre-conversion in Modulo 5 format
-		// Create a temp output file
-		fo, err := os.Create(outputfile + ".temp")
-		if err != nil {
-			return "", errors.New("attenzione il file di output è aperto e non può essere scritto")
-		}
-		// Close fo on exit and check for its returned error
-		defer func() {
-			if err := fo.Close(); err != nil {
-				fmt.Printf("Error closing output file: %s", err)
-			}
-		}()
-
-		// Create a writer
-		writer := csv.NewWriter(fo)
-		defer writer.Flush()
-
-		writer.Comma = ';'
-
-		// Init the line counter
-		line := 1
-		channelNumber := 0
-		for {
-			// Increment the line
-			line++
-			rec, err = csvReader.Read()
-			if err == io.EOF {
-				break
-			}
-			checkError("Cannot read the file", err)
-
-			// If one of the first two lines
-			if line < 4 {
-				empty_rec := []string{"", "", ""}
-				err = writer.Write(empty_rec)
-				checkError("Cannot write to file", err)
-			} else if line >= 4 && line < 7 {
-				// Skip the lines
-			} else if line == 7 {
-				// Write the header of Modulo 5
-				err = writer.Write(table_headers["modulo5_old"])
-				checkError("Cannot write to file", err)
-			} else {
-				// Write the scrambled line
-				err = rewriteContentFoRLoytec(writer, rec, channelNumber)
-				checkError("Cannot write to file", err)
-				channelNumber++
-			}
-			if err != nil {
-				return "", err
-			}
-		}
-
-		return outputfile + ".temp", nil
-	}
-}
-
-func transform(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) error {
-
-	// Open the input file
-	fr, err := os.Open(inputfile)
-	if err != nil {
-		return err
-	}
-	defer fr.Close()
-
-	// Read csv values using csv.Reader
-	csvReader := csv.NewReader(fr)
-	csvReader.FieldsPerRecord = -1
-	csvReader.Comma = ';'
-
-	// Open the output file
-	fo, err := os.Create(outputfile)
-	if err != nil {
-		return errors.New("attenzione il file di output è aperto e non può essere scritto")
-	}
-	// Close fo on exit and check for its returned error
-	defer func() {
-		if err := fo.Close(); err != nil {
-			fmt.Printf("Error closing output file: ", err)
-		}
-	}()
-
-	// Create a writer
-	writer := csv.NewWriter(fo)
-	defer writer.Flush()
-
-	writer.Comma = ';'
-
-	// Init the line counter
-	line := 0
-	isOld := false
-
-	for {
-		// Increment the line
-		line++
-		rec, err := csvReader.Read()
-		if err == io.EOF {
-			break
-		}
-		checkError("Cannot read the file", err)
-
-		// If one of the first two lines
-		if line < 3 {
-			// TODO: For "modulo 6" skip the first lines Understand why the "modulo6" keeps stopping import.  rec[0] = "EY6AS80 Modbus Master" does not fully work
-			if selectedOutput != "modulo6" {
-				// Write the first two line as is (exept the first for "modulo6")
-				err = writer.Write(rec)
-				checkError("Cannot write to file", err)
-			}
-
-		} else if line == 3 {
-			//Detect if it is an old version or a new one
-			isOld = detectTypeFromHeader(rec[10])
-
-			// Write the selected device table header
-			err = writer.Write(table_headers[selectedOutput])
-			checkError("Cannot write to file", err)
-		} else {
-			// Write the scrambled line
-			err = rewriteContent(writer, rec, isOld)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func rewriteContentFoRLoytec(writer *csv.Writer, rec []string, channelNumber int) error {
-	err := writer.Write([]string{rec[3], strconv.Itoa(channelNumber), "0", loytecToModulo5DataTypeAS(rec[5]), loytecToModulo5DataTypeFS(rec[8]), rec[10], rec[9], "0", "0", "0", "0", rec[4], loytecToModulo5FunctionCode(rec[5], rec[16]), rec[6], "1", "0"})
-	return err
-}
-
-func rewriteContent(writer *csv.Writer, rec []string, isOld bool) error {
-
-	if selectedOutput == "modulo6" {
-		// Modulo 6
-		if isOld {
-			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[15], "1", queryInterval, "0", rec[0]})
-		} else {
-			return writer.Write([]string{rec[1], rec[2], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[13], "1", queryInterval, "0", rec[0]})
-		}
-	} else if selectedOutput == "ecos504" {
-		// Ecos 504
-		if isOld {
-			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[11], rec[12], rec[13], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[15], "1", queryInterval, "0", rec[0]})
-		} else {
-			return writer.Write([]string{rec[1], translateDataTypeAS(rec[4], rec[3]), rec[5], rec[6], rec[10], rec[11], rec[12], translateDataTypeFS(rec[4]), translateByteOrder(rec[7]), translateWordOrder(rec[7]), "0", rec[13], "1", queryInterval, "0", rec[0]})
-		}
-	} else if selectedOutput == "modulo5" {
-		// Modulo 5
-		if isOld {
-			return writer.Write([]string{rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], rec[8], rec[9], rec[11], rec[12], rec[13], rec[15]})
-		} else {
-			// If it's already a new version there is no reason to change it
-			return writer.Write(rec)
-		}
-	} else if selectedOutput == "modulo5_old" {
-		// Modulo 5 old (v < 1.16)
-		if isOld {
-			// If it's already an old version there is no reason to change it
-			return writer.Write(rec)
-		} else {
-			return writer.Write([]string{rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], rec[8], rec[9], "0", rec[10], rec[11], rec[12], "1", rec[13]})
-		}
-	} else {
-		return errors.New("impossibile riconoscere il tipo di output selezionato")
-	}
-}
-
-func detectTypeFromHeader(check string) bool {
-	if check == "triggerd" || check == "Trigger: mode" {
-		return true
-	}
-	return false
-}
-
 func checkError(message string, err error) {
 	if err != nil {
 		fmt.Println(message, err)
 	}
-}
-
-func translateDataTypeFS(input string) string {
-	var output string
-	switch input {
-	case "0":
-		output = "0"
-	case "1":
-		output = "1"
-	case "2":
-		output = "5"
-	case "3":
-		output = "2"
-	case "4":
-		output = "6"
-	case "5":
-		output = "3"
-	case "6":
-		output = "7"
-	case "7":
-		output = "1"
-	case "8":
-		output = "3"
-	case "9":
-		output = "5"
-	case "10":
-		output = "9"
-	case "11":
-		output = "TEXT"
-	case "12":
-		output = "4"
-	case "13":
-		output = "8"
-	case "14":
-		output = "10"
-	default:
-		output = "NaN"
-	}
-
-	return output
-}
-
-func translateDataTypeAS(dataTypeFS string, DdataTypeAS string) string {
-	var output string
-	switch dataTypeFS {
-	case "7":
-		output = "2"
-	case "8":
-		output = "2"
-	case "9":
-		output = "2"
-	default:
-		output = DdataTypeAS
-	}
-
-	return output
-}
-
-func loytecToModulo5DataTypeAS(registerType string) string {
-	var output string
-	switch registerType {
-	case "INPUT":
-		output = "2"
-	case "DISCRETE":
-		output = "2"
-	case "HOLD":
-		output = "0"
-	default:
-		output = "0"
-	}
-
-	return output
-}
-
-func loytecToModulo5DataTypeFS(dataType string) string {
-	var output string
-	switch dataType {
-	case "bit":
-		output = "0"
-	case "uint8":
-		output = "1"
-	case "uint16":
-		output = "3"
-	case "uint32":
-		output = "5"
-	case "uint64":
-		output = "12"
-	case "int8":
-		output = "2"
-	case "int16":
-		output = "4"
-	case "int32":
-		output = "6"
-	case "int64":
-		output = "13"
-	case "float32":
-		output = "10"
-	case "float64":
-		output = "14"
-	default:
-		output = "3"
-	}
-
-	return output
-}
-
-func loytecToModulo5FunctionCode(registerType string, Direction string) string {
-	output := "0"
-
-	if registerType == "DISCRETE" {
-		output = "2"
-	}
-
-	if registerType == "COIL" {
-		if Direction == "Input" {
-			output = "1"
-		} else if Direction == "Output" {
-			output = "5"
-		} else if Direction == "Value" {
-			output = "5"
-		}
-	}
-
-	if registerType == "INPUT" {
-		output = "4"
-	}
-
-	if registerType == "HOLD" {
-		if Direction == "Input" {
-			output = "3"
-		} else if Direction == "Output" {
-			output = "6"
-		} else if Direction == "Value" {
-			output = "6"
-		}
-	}
-
-	return output
-}
-
-// Just a mock translation for future implementation
-func translateByteOrder(byteOrder string) string {
-	return "1"
-}
-
-// Just a mock translation for future implementation
-func translateWordOrder(byteOrder string) string {
-	return byteOrder
 }
