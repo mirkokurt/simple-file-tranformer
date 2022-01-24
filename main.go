@@ -124,8 +124,8 @@ func processFile(toBeProcessed chan fileInfo) error {
 			"*" + Tab +
 			formatDate(rd.Data_Documento) + Tab +
 			// Manage differences between DDTC and others
-			inline_if(rd.Tipo_Documento == "DDTC", cleanDocumentNumber, rd.Descr_parte1).(string) + Tab +
-			printDescritpion(rd) + Tab +
+			inline_if(rd.Tipo_Documento == "DDTC", rd.Descr_parte1, rd.Descr_parte1).(string) + Tab +
+			printDescritpion(rd, rd.Tipo_Documento) + Tab +
 			strings.ReplaceAll(file_tpb.name, *ext_type, ".pdf") + Tab +
 			"0" + Tab +
 			"*" + Tab +
@@ -202,7 +202,7 @@ func usage(errmsg string) {
 	os.Exit(2)
 }
 
-func printDescritpion(rd Record) string {
+func printDescritpion(rd Record, docType string) string {
 	description := ""
 
 	fields := reflect.TypeOf(rd)
@@ -212,6 +212,10 @@ func printDescritpion(rd Record) string {
 		field := fields.Field(i)
 		value := values.Field(i).Interface().(string)
 		if strings.HasPrefix(field.Name, "Descr_") && value != "" {
+			// If the doc type is "DDTC" skip the first description field
+			if docType == "DDTC" && field.Name == "Descr_parte1" {
+				continue
+			}
 			if len(description) == 0 {
 				description += value
 			} else {
