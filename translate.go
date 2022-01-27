@@ -147,3 +147,40 @@ func translateByteOrder(byteOrder string) string {
 func translateWordOrder(byteOrder string) string {
 	return byteOrder
 }
+
+func loytecToModulo5ByteOrder(swap16, swap32, swap64 string) string {
+	if swap16 == "1" && swap32 == "0" && swap64 == "0" {
+		return "0"
+	}
+	if swap16 == "0" && swap32 == "1" && swap64 == "0" {
+		return "1"
+	}
+	if swap16 == "0" && swap32 == "0" && swap64 == "1" {
+		return "2"
+	}
+	return "0"
+}
+
+func loytecToModulo5ScalingA(exponent string) string {
+	var output string
+	switch exponent {
+	case "-3":
+		output = "1000"
+	case "-2":
+		output = "100"
+	case "-1":
+		output = "10"
+	case "0":
+		output = "1"
+	case "1":
+		output = "0.1"
+	case "2":
+		output = "0.01"
+	case "3":
+		output = "0.001"
+	default:
+		output = "1"
+	}
+
+	return output
+}

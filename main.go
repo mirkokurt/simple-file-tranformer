@@ -59,7 +59,7 @@ func main() {
 
 	labelQueryInterval := widgets.NewQLabel2("Query interval", nil, core.Qt__BypassWindowManagerHint)
 	inputQueryInterval := widgets.NewQLineEdit(nil)
-	inputQueryInterval.SetText("240")
+	inputQueryInterval.SetText("10")
 	inputQueryInterval.SetAlignment(core.Qt__AlignHCenter)
 	inputQueryInterval.SetMinimumSize(size)
 

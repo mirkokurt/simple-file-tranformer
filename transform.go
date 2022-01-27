@@ -84,7 +84,7 @@ func transformFromModulo5ToSelected(inputfile string, outputfile string, queryIn
 }
 
 func rewriteFromLoytecToModulo5(writer *csv.Writer, rec []string, channelNumber int) error {
-	err := writer.Write([]string{rec[3], strconv.Itoa(channelNumber), "0", loytecToModulo5DataTypeAS(rec[5]), loytecToModulo5DataTypeFS(rec[8]), rec[10], rec[9], "0", "0", "0", "0", rec[4], loytecToModulo5FunctionCode(rec[5], rec[16]), rec[6], "1", "0"})
+	err := writer.Write([]string{rec[3], strconv.Itoa(channelNumber), "0", loytecToModulo5DataTypeAS(rec[5]), loytecToModulo5DataTypeFS(rec[8]), loytecToModulo5ScalingA(rec[11]), rec[10], loytecToModulo5ByteOrder(rec[12], rec[13], rec[14]), "0", "0", "0", rec[4], loytecToModulo5FunctionCode(rec[5], rec[16]), rec[6], "1", "0"})
 	return err
 }
 
