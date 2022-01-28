@@ -104,6 +104,70 @@ func loytecToModulo5DataTypeFS(dataType string) string {
 	return output
 }
 
+func modulo5ToLoytecRegisterLength(dataTypeFS string) string {
+	var output string
+	switch dataTypeFS {
+	case "0":
+		output = "0"
+	case "1":
+		output = "1"
+	case "3":
+		output = "2"
+	case "5":
+		output = "4"
+	case "12":
+		output = "8"
+	case "2":
+		output = "1"
+	case "4":
+		output = "2"
+	case "6":
+		output = "4"
+	case "13":
+		output = "8"
+	case "10":
+		output = "4"
+	case "14":
+		output = "8"
+	default:
+		output = "1"
+	}
+
+	return output
+}
+
+func modulo5ToLoytecModbusDataType(dataTypeFS string) string {
+	var output string
+	switch dataTypeFS {
+	case "0":
+		output = "bit"
+	case "1":
+		output = "uint8"
+	case "3":
+		output = "uint16"
+	case "5":
+		output = "uint32"
+	case "12":
+		output = "uint64"
+	case "2":
+		output = "int8"
+	case "4":
+		output = "int16"
+	case "6":
+		output = "int32"
+	case "13":
+		output = "in64"
+	case "10":
+		output = "float32"
+	case "14":
+		output = "float64"
+	default:
+		output = "uint16"
+	}
+
+	return output
+}
+
 func loytecToModulo5FunctionCode(registerType string, Direction string) string {
 	output := "0"
 
@@ -138,6 +202,28 @@ func loytecToModulo5FunctionCode(registerType string, Direction string) string {
 	return output
 }
 
+func modulo5ToLoytecRegisterType(functionCode string) string {
+	var output string
+	switch functionCode {
+	case "2":
+		output = "DISCRETE"
+	case "1":
+		output = "COIL"
+	case "4":
+		output = "INPUT"
+	case "3":
+		output = "HOLD"
+	case "5":
+		output = "COIL"
+	case "6":
+		output = "HOLD"
+	default:
+		output = "INPUT"
+	}
+
+	return output
+}
+
 // Just a mock translation for future implementation
 func translateByteOrder(byteOrder string) string {
 	return "1"
@@ -161,6 +247,19 @@ func loytecToModulo5ByteOrder(swap16, swap32, swap64 string) string {
 	return "0"
 }
 
+func modulo5ToLoytecSwap(byteOrder string) (string, string, string) {
+	if byteOrder == "0" {
+		return "1", "0", "0"
+	}
+	if byteOrder == "1" {
+		return "0", "1", "0"
+	}
+	if byteOrder == "2" {
+		return "0", "0", "1"
+	}
+	return "0", "0", "0"
+}
+
 func loytecToModulo5ScalingA(exponent string) string {
 	var output string
 	switch exponent {
@@ -180,6 +279,30 @@ func loytecToModulo5ScalingA(exponent string) string {
 		output = "0.001"
 	default:
 		output = "1"
+	}
+
+	return output
+}
+
+func modulo5ToLoytecExponent(ScalingA string) string {
+	var output string
+	switch ScalingA {
+	case "1000":
+		output = "-3"
+	case "100":
+		output = "-2"
+	case "10":
+		output = "-1"
+	case "1":
+		output = "0"
+	case "0.1":
+		output = "1"
+	case "0.01":
+		output = "2"
+	case "0.001":
+		output = "3"
+	default:
+		output = "0"
 	}
 
 	return output

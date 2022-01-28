@@ -22,6 +22,7 @@ func main() {
 	table_headers["modulo5"] = []string{"Description", "Channel number", "Communication direction", "Data type AS [Vas]", "Data type FS [Vfs]", "Scaling parameter [A]", "Scaling parameter [B]", "Byte order", "Threshold", "Send-Priority", "Modbus Slave address", "Function-Code", "Address", "Bit number"}
 	table_headers["modulo6"] = []string{"Channel number", "Communication direction", "Data type AS [Vas]", "Scaling[A]", "Offset[B]", "Modbus Slave Address", "Data point type", "Start Address", "Modbus data type", "Byte order", "Word order", "DWord order", "Bit selection", "Bit quantity", "Query Interval", "SingleTg", "Description"}
 	table_headers["modulo5_old"] = []string{"description", "channel nbr", "direction", "DP type AS", "DP type FS", "scaling parameter A", "scaling parameter B", "byte order", "COV inc", "priority", "triggerd", "Slave Adress", "FC", "Adresse", "Anzahl", "BirNr"}
+	table_headers["linx"] = []string{"#UID", "IdPath", "Name", "Description", "Modbus Dev Address", "Register Type", "Register Address", "Register Length", "Modbus Data type", "Multiplier	Offset", "Exponent", "Swap 16", "Swap 32", "Swap 64", "Units", "Direction"}
 
 	//set default output
 	selectedOutput = "ecos504"
@@ -142,7 +143,7 @@ func main() {
 	comboOutput.SetEditable(true)
 	comboOutput.LineEdit().SetReadOnly(true)
 	comboOutput.LineEdit().SetAlignment(core.Qt__AlignHCenter)
-	comboOutput.AddItems([]string{"ecos504", "modulo6", "modulo5", "modulo5_old"})
+	comboOutput.AddItems([]string{"ecos504", "modulo6", "modulo5", "modulo5_old", "linx"})
 	comboOutput.ConnectCurrentIndexChanged(func(index int) { setOutputType(index, labelOutput) })
 
 	formLayout.AddRow(selectInput, labelInput)
@@ -168,6 +169,8 @@ func setOutputType(index int, labelOutput *widgets.QLabel) {
 		selectedOutput = "modulo5"
 	case 3:
 		selectedOutput = "modulo5_old"
+	case 4:
+		selectedOutput = "linx"
 	default:
 		selectedOutput = "ecos504"
 	}

@@ -120,6 +120,15 @@ func rewriteFromModulo5ToSelected(writer *csv.Writer, rec []string, isOld bool) 
 		} else {
 			return writer.Write([]string{rec[0], rec[1], rec[2], rec[3], rec[4], rec[5], rec[6], rec[7], rec[8], rec[9], "0", rec[10], rec[11], rec[12], "1", rec[13]})
 		}
+	} else if selectedOutput == "linx" {
+		// Modulo 5 old (v < 1.16)
+		if isOld {
+			swap16, swap32, swap64 := modulo5ToLoytecSwap(rec[7])
+			return writer.Write([]string{"UID_Seq", "Modbus Port RS485.Datapoints." + rec[0], rec[0], rec[0], rec[11], modulo5ToLoytecRegisterType(rec[12]), rec[13], modulo5ToLoytecRegisterLength(rec[4]), modulo5ToLoytecModbusDataType(rec[4]), "1", rec[6], modulo5ToLoytecExponent(rec[5]), swap16, swap32, swap64, "", "Input"})
+		} else {
+			swap16, swap32, swap64 := modulo5ToLoytecSwap(rec[7])
+			return writer.Write([]string{"UID_Seq", "Modbus Port RS485.Datapoints." + rec[0], rec[0], rec[0], rec[10], modulo5ToLoytecRegisterType(rec[11]), rec[12], modulo5ToLoytecRegisterLength(rec[4]), modulo5ToLoytecModbusDataType(rec[4]), "1", rec[6], modulo5ToLoytecExponent(rec[5]), swap16, swap32, swap64, "", "Input"})
+		}
 	} else {
 		return errors.New("impossibile riconoscere il tipo di output selezionato")
 	}
