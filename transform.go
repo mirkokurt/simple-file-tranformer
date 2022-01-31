@@ -133,3 +133,15 @@ func rewriteFromModulo5ToSelected(writer *csv.Writer, rec []string, isOld bool) 
 		return errors.New("impossibile riconoscere il tipo di output selezionato")
 	}
 }
+
+func rewriteFromModulo6ToModulo5Old(writer *csv.Writer, rec []string) error {
+
+	return writer.Write([]string{rec[16], rec[0], rec[1], "0", rec[2], fromModulo6DataTypeFSToModulo5DataTypeFS(rec[6]), rec[3], rec[4], Modulo6ToModulo5ByteOrder(rec[9], rec[10], rec[11]), "0", "0", "0", rec[5], rec[6], rec[7], "1", "0"})
+
+}
+
+func rewriteFromEcosToModulo5Old(writer *csv.Writer, rec []string) error {
+
+	return writer.Write([]string{rec[16], rec[0], "0", "0", rec[1], fromModulo6DataTypeFSToModulo5DataTypeFS(rec[5]), rec[2], rec[3], Modulo6ToModulo5ByteOrder(rec[8], rec[9], rec[10]), "0", "0", "0", rec[4], rec[5], rec[6], "1", "0"})
+
+}

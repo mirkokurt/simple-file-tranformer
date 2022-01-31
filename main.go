@@ -179,6 +179,7 @@ func setOutputType(index int, labelOutput *widgets.QLabel) {
 		outputfileName = strings.ReplaceAll(outputfileName, "_modulo6", "")
 		outputfileName = strings.ReplaceAll(outputfileName, "_modulo5_old", "")
 		outputfileName = strings.ReplaceAll(outputfileName, "_modulo5", "")
+		outputfileName = strings.ReplaceAll(outputfileName, "_linx", "")
 		outputfileName = strings.ReplaceAll(outputfileName, ".csv", "") + "_" + selectedOutput + ".csv"
 		labelOutput.SetText(outputfileName)
 	}

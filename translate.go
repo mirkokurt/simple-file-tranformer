@@ -40,6 +40,46 @@ func translateDataTypeFS(input string) string {
 	return output
 }
 
+func fromModulo6DataTypeFSToModulo5DataTypeFS(input string) string {
+	var output string
+	switch input {
+	case "0":
+		output = "0"
+	case "1":
+		output = "1"
+	case "5":
+		output = "2"
+	case "2":
+		output = "3"
+	case "6":
+		output = "4"
+	case "3":
+		output = "5"
+	case "7":
+		output = "6"
+	// case "1":
+	// 	output = "7"
+	// case "3":
+	// 	output = "8"
+	// case "5":
+	// 	output = "9"
+	case "9":
+		output = "10"
+	case "TEXT":
+		output = "11"
+	case "4":
+		output = "12"
+	case "8":
+		output = "13"
+	case "10":
+		output = "14"
+	default:
+		output = "NaN"
+	}
+
+	return output
+}
+
 func translateDataTypeAS(dataTypeFS string, DdataTypeAS string) string {
 	var output string
 	switch dataTypeFS {
@@ -243,6 +283,16 @@ func loytecToModulo5ByteOrder(swap16, swap32, swap64 string) string {
 	}
 	if swap16 == "0" && swap32 == "0" && swap64 == "1" {
 		return "2"
+	}
+	return "0"
+}
+
+func Modulo6ToModulo5ByteOrder(swap16, swap32, swap64 string) string {
+	if swap16 == "1" && swap32 == "0" && swap64 == "0" {
+		return "0"
+	}
+	if swap16 == "1" && swap32 == "1" && swap64 == "0" {
+		return "1"
 	}
 	return "0"
 }
