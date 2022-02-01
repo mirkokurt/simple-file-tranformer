@@ -25,6 +25,7 @@ func main() {
 	table_headers["linx"] = []string{"#UID", "IdPath", "Name", "Description", "Modbus Dev Address", "Register Type", "Register Address", "Register Length", "Modbus Data type", "Multiplier", "Offset", "Exponent", "Swap 16", "Swap 32", "Swap 64", "Units", "Direction"}
 
 	//set default output
+	selectedInput = "ecos504"
 	selectedOutput = "ecos504"
 
 	widgets.NewQApplication(len(os.Args), os.Args)
@@ -104,28 +105,45 @@ func main() {
 	tranformButton := widgets.NewQPushButton2("Trasforma", nil)
 	tranformButton.ConnectClicked(func(checked bool) {
 		queryInterval = inputQueryInterval.Text()
+		temp_filename := fileName
 		_, err := strconv.Atoi(queryInterval)
 		if err != nil {
 			widgets.QMessageBox_Warning(widget, "Errore", "Inserisci un Query Interval valido", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
-		} else if fileName == "" || outputfileName == "" {
+		} else if temp_filename == "" || outputfileName == "" {
 			widgets.QMessageBox_Warning(widget, "Errore", "Seleziona prima i file!", widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 		} else {
 
-			// Check if it is a Loytec input file first and in the case perform a pre-transformation in Modulo5 file format
-			isLoytech, err := isLoytech(fileName)
+			if selectedInput == "linx" {
+				// Check if it is a Loytec input file first and in the case perform a pre-transformation in Modulo5 file format
+				isLoytech, err := isLoytech(temp_filename)
+				if err != nil {
+					widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				} else {
+					if isLoytech {
+						temp_filename, err = transformLoytecToModulo5(temp_filename, outputfileName, queryInterval, widget)
+						if err != nil {
+							widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+						}
+					}
+				}
+			} else if selectedInput == "modulo6" {
+				temp_filename, err = transformModulo6ToModulo5(temp_filename, outputfileName, queryInterval, widget)
+				if err != nil {
+					widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				}
+			} else if selectedInput == "ecos504" {
+				temp_filename, err = transformEcos504ToModulo5(temp_filename, outputfileName, queryInterval, widget)
+				if err != nil {
+					widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
+				}
+			}
 
 			if err != nil {
 				widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 			} else {
-				if isLoytech {
-					fileName, err = transformLoytecToModulo5(fileName, outputfileName, queryInterval, widget)
-					if err != nil {
-						widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
-					}
-				}
 
 				// Trasform the input file in the output file
-				err = transformFromModulo5ToSelected(fileName, outputfileName, queryInterval, widget)
+				err = transformFromModulo5ToSelected(temp_filename, outputfileName, queryInterval, widget)
 				if err != nil {
 					widgets.QMessageBox_Information(widget, "Errore", err.Error(), widgets.QMessageBox__Ok, widgets.QMessageBox__Ok)
 				} else {
@@ -135,8 +153,19 @@ func main() {
 		}
 	})
 
-	labelCombo := widgets.NewQLabel2("Seleziona il tipo di output", nil, core.Qt__BypassWindowManagerHint)
-	labelCombo.SetAlignment(core.Qt__AlignHCenter)
+	labelComboInput := widgets.NewQLabel2("Seleziona il tipo di input", nil, core.Qt__BypassWindowManagerHint)
+	labelComboInput.SetAlignment(core.Qt__AlignHCenter)
+
+	labelComboOutput := widgets.NewQLabel2("Seleziona il tipo di output", nil, core.Qt__BypassWindowManagerHint)
+	labelComboOutput.SetAlignment(core.Qt__AlignHCenter)
+
+	comboInput := widgets.NewQComboBox(nil)
+	comboInput.SetEnabled(true)
+	comboInput.SetEditable(true)
+	comboInput.LineEdit().SetReadOnly(true)
+	comboInput.LineEdit().SetAlignment(core.Qt__AlignHCenter)
+	comboInput.AddItems([]string{"ecos504", "modulo6", "modulo5", "modulo5_old", "linx"})
+	comboInput.ConnectCurrentIndexChanged(func(index int) { setInputType(index, labelOutput) })
 
 	comboOutput := widgets.NewQComboBox(nil)
 	comboOutput.SetEnabled(true)
@@ -146,16 +175,36 @@ func main() {
 	comboOutput.AddItems([]string{"ecos504", "modulo6", "modulo5", "modulo5_old", "linx"})
 	comboOutput.ConnectCurrentIndexChanged(func(index int) { setOutputType(index, labelOutput) })
 
+	formLayout.AddRow(labelComboInput, comboInput)
 	formLayout.AddRow(selectInput, labelInput)
+	formLayout.AddRow(labelComboOutput, comboOutput)
 	formLayout.AddRow(selectOutput, labelOutput)
 	formLayout.AddRow(inputQueryInterval, labelQueryInterval)
-	formLayout.AddRow(labelCombo, comboOutput)
 	formLayout.AddRow(tranformlabel, tranformButton)
 
 	window.SetCentralWidget(widget)
 	window.Show()
 
 	widgets.QApplication_Exec()
+}
+
+func setInputType(index int, labelInput *widgets.QLabel) {
+
+	switch index {
+	case 0:
+		selectedInput = "ecos504"
+	case 1:
+		selectedInput = "modulo6"
+	case 2:
+		selectedInput = "modulo5"
+	case 3:
+		selectedInput = "modulo5_old"
+	case 4:
+		selectedInput = "linx"
+	default:
+		selectedInput = "ecos504"
+	}
+
 }
 
 func setOutputType(index int, labelOutput *widgets.QLabel) {

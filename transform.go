@@ -136,12 +136,148 @@ func rewriteFromModulo5ToSelected(writer *csv.Writer, rec []string, isOld bool) 
 
 func rewriteFromModulo6ToModulo5Old(writer *csv.Writer, rec []string) error {
 
-	return writer.Write([]string{rec[16], rec[0], rec[1], "0", rec[2], fromModulo6DataTypeFSToModulo5DataTypeFS(rec[6]), rec[3], rec[4], Modulo6ToModulo5ByteOrder(rec[9], rec[10], rec[11]), "0", "0", "0", rec[5], rec[6], rec[7], "1", "0"})
+	return writer.Write([]string{rec[16], rec[0], rec[1], rec[2], fromModulo6DataTypeFSToModulo5DataTypeFS(rec[6]), rec[3], rec[4], Modulo6ToModulo5ByteOrder(rec[9], rec[10], rec[11]), "0", "0", "0", rec[5], rec[6], rec[7], "1", "0"})
 
 }
 
-func rewriteFromEcosToModulo5Old(writer *csv.Writer, rec []string) error {
+func rewriteFromEcos504ToModulo5Old(writer *csv.Writer, rec []string) error {
 
-	return writer.Write([]string{rec[16], rec[0], "0", "0", rec[1], fromModulo6DataTypeFSToModulo5DataTypeFS(rec[5]), rec[2], rec[3], Modulo6ToModulo5ByteOrder(rec[8], rec[9], rec[10]), "0", "0", "0", rec[4], rec[5], rec[6], "1", "0"})
+	return writer.Write([]string{rec[15], rec[0], "0", rec[1], fromModulo6DataTypeFSToModulo5DataTypeFS(rec[5]), rec[2], rec[3], Modulo6ToModulo5ByteOrder(rec[8], rec[9], rec[10]), "0", "0", "0", rec[4], rec[5], rec[6], "1", "0"})
+
+}
+
+func transformModulo6ToModulo5(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) (string, error) {
+	// Open the input file
+	fr, err := os.Open(inputfile)
+	if err != nil {
+		return "", err
+	}
+	defer fr.Close()
+
+	// Read csv values using csv.Reader
+	csvReader := csv.NewReader(fr)
+	csvReader.FieldsPerRecord = -1
+	csvReader.Comma = ';'
+
+	// If the input file is a LOYTEC execute a pre-conversion in Modulo 5 format
+	// Create a temp output file
+	fo, err := os.Create(outputfile + ".temp")
+	if err != nil {
+		return "", errors.New("attenzione il file di output è aperto e non può essere scritto")
+	}
+	// Close fo on exit and check for its returned error
+	defer func() {
+		if err := fo.Close(); err != nil {
+			fmt.Printf("Error closing output file: %s", err)
+		}
+	}()
+
+	// Create a writer
+	writer := csv.NewWriter(fo)
+	defer writer.Flush()
+
+	writer.Comma = ';'
+
+	// Init the line counter
+	line := 0
+	channelNumber := 0
+	for {
+		// Increment the line
+		line++
+		rec, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		checkError("Cannot read the file", err)
+
+		// If one of the first two lines
+		if line < 3 {
+			empty_rec := []string{"", "", ""}
+			err = writer.Write(empty_rec)
+			checkError("Cannot write to file", err)
+		} else if line == 3 {
+			// Write the header of Modulo 5
+			err = writer.Write(table_headers["modulo5_old"])
+			checkError("Cannot write to file", err)
+		} else {
+			// Write the scrambled line
+			err = rewriteFromModulo6ToModulo5Old(writer, rec)
+			checkError("Cannot write to file", err)
+			channelNumber++
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return outputfile + ".temp", nil
+
+}
+
+func transformEcos504ToModulo5(inputfile string, outputfile string, queryInterval string, widget *widgets.QWidget) (string, error) {
+	// Open the input file
+	fr, err := os.Open(inputfile)
+	if err != nil {
+		return "", err
+	}
+	defer fr.Close()
+
+	// Read csv values using csv.Reader
+	csvReader := csv.NewReader(fr)
+	csvReader.FieldsPerRecord = -1
+	csvReader.Comma = ';'
+
+	// If the input file is a LOYTEC execute a pre-conversion in Modulo 5 format
+	// Create a temp output file
+	fo, err := os.Create(outputfile + ".temp")
+	if err != nil {
+		return "", errors.New("attenzione il file di output è aperto e non può essere scritto")
+	}
+	// Close fo on exit and check for its returned error
+	defer func() {
+		if err := fo.Close(); err != nil {
+			fmt.Printf("Error closing output file: %s", err)
+		}
+	}()
+
+	// Create a writer
+	writer := csv.NewWriter(fo)
+	defer writer.Flush()
+
+	writer.Comma = ';'
+
+	// Init the line counter
+	line := 0
+	channelNumber := 0
+	for {
+		// Increment the line
+		line++
+		rec, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		checkError("Cannot read the file", err)
+
+		// If one of the first two lines
+		if line < 3 {
+			empty_rec := []string{"", "", ""}
+			err = writer.Write(empty_rec)
+			checkError("Cannot write to file", err)
+		} else if line == 3 {
+			// Write the header of Modulo 5
+			err = writer.Write(table_headers["modulo5_old"])
+			checkError("Cannot write to file", err)
+		} else {
+			// Write the scrambled line
+			err = rewriteFromEcos504ToModulo5Old(writer, rec)
+			checkError("Cannot write to file", err)
+			channelNumber++
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return outputfile + ".temp", nil
 
 }
